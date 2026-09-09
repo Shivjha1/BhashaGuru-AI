@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  PARENT
+  ADMIN
+}
+
+enum LessonStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  FILL_BLANK
+}
+model User {
+  id String @id @default(cuid())
+  name String
+  email String @unique
+  passwordHash String
+  role Role
+  language String @default("Telugu")
+  className String?
+  createdAt DateTime @default(now())
+  studentProfile StudentProfile?
+  parentProfile ParentProfile?
+  lessons Lesson[] @relation("TeacherLessons")
+  attempts QuizAttempt[]
+}
+
+model StudentProfile {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  parentId String?
+  parent ParentProfile? @relation(fields:[parentId], references:[id])
+}
+
+model ParentProfile {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  children StudentProfile[]
+}
+
+model Lesson {
+  id String @id @default(cuid())
+  title String
+  subject String
+  className String
+  sourceText String
+  language String @default("English")
+  status LessonStatus @default(DRAFT)
+  teacherId String
+  teacher User @relation("TeacherLessons", fields:[teacherId], references:[id])
+  createdAt DateTime @default(now())
+  questions QuizQuestion[]
+  attempts QuizAttempt[]
+}
+
+model QuizQuestion {
+  id String @id @default(cuid())
+  lessonId String
+  lesson Lesson @relation(fields:[lessonId], references:[id], onDelete:Cascade)
+  type QuestionType @default(MCQ)
+  question String
+  options Json?
+  answer String
+  topic String
+}
+
+model QuizAttempt {
+  id String @id @default(cuid())
+  studentId String
+  student User @relation(fields:[studentId], references:[id], onDelete:Cascade)
+  lessonId String
+  lesson Lesson @relation(fields:[lessonId], references:[id], onDelete:Cascade)
+  score Int
+  total Int
+  weakTopic String?
+  createdAt DateTime @default(now())
+}
