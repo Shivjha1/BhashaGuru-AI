@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function Login() {
-	const [email, setEmail] = useState("student@bhashaguru.demo");
-	const [password, setPassword] = useState("demo123");
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
 	const [err, setErr] = useState("");
 	const router = useRouter();
 
@@ -23,5 +23,5 @@ export default function Login() {
 		router.push(destination);
 	}
 
-	return <main className="auth-page"><div className="card auth-card"><Link className="logo" href="/">🌐 <span>BhashaGuru AI</span></Link><h1>Welcome back 👋</h1><p className="muted">Sign in to your learning workspace.</p><form onSubmit={go}><label htmlFor="email">Email</label><input id="email" className="input" value={email} onChange={(event) => setEmail(event.target.value)} required /><label htmlFor="password">Password</label><input id="password" className="input" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />{err && <p className="notice danger">{err}</p>}<button className="btn" style={{ width: "100%" }}>Sign in</button></form><p className="muted">New team member? <Link href="/register">Create account</Link></p></div></main>;
+	return <main className="auth-page"><div className="card auth-card"><Link className="logo" href="/">🌐 <span>BhashaGuru AI</span></Link><h1>Welcome back 👋</h1><p className="muted">Sign in to your learning workspace.</p><form onSubmit={go}><label htmlFor="email">Email</label><input id="email" className="input" type="email" placeholder="Enter your Gmail" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required /><label htmlFor="password">Password</label><input id="password" className="input" type="password" placeholder="Enter password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />{err && <p className="notice danger">{err}</p>}<button className="btn" style={{ width: "100%" }}>Sign in</button></form><p className="muted">New team member? <Link href="/register">Create account</Link></p></div></main>;
 }

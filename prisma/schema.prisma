@@ -60,6 +60,8 @@ model Lesson {
   subject String
   className String
   sourceText String
+  pdfUrl String?
+  pdfName String?
   language String @default("English")
   status LessonStatus @default(DRAFT)
   teacherId String

@@ -8,6 +8,8 @@ type Lesson = {
   subject: string;
   className: string;
   sourceText: string;
+  pdfUrl?: string;
+  pdfName?: string;
   language?: string;
   status?: string;
 };
@@ -21,6 +23,8 @@ export default function LessonsPage() {
   const [className, setClassName] = useState("");
   const [language, setLanguage] = useState("English");
   const [sourceText, setSourceText] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfName, setPdfName] = useState("");
 
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -49,34 +53,63 @@ export default function LessonsPage() {
     loadLessons();
   }, []);
 
-  async function createLesson() {
-    setMessage("");
+  async function handlePdfUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
 
-    if (!title || !subject || !className || !sourceText) {
-      setMessage("Please fill all the fields.");
+    if (!file) {
+      setPdfFile(null);
+      setPdfName("");
       return;
     }
 
-    if (sourceText.length < 20) {
-      setMessage("Lesson content must be at least 20 characters.");
+    if (file.type !== "application/pdf") {
+      setMessage("Please upload a PDF file only.");
+      event.target.value = "";
+      return;
+    }
+
+    setPdfFile(file);
+    setPdfName(file.name);
+    setMessage(`PDF selected: ${file.name}`);
+  }
+
+  async function createLesson() {
+    setMessage("");
+
+    const trimmedText = sourceText.trim();
+    const hasPdf = Boolean(pdfFile);
+
+    if (!title || !subject || !className) {
+      setMessage("Please fill in the title, subject, and class.");
+      return;
+    }
+
+    if (!trimmedText && !hasPdf) {
+      setMessage("Please write lesson content or upload a PDF.");
+      return;
+    }
+
+    if (trimmedText && trimmedText.length < 20 && !hasPdf) {
+      setMessage("Lesson content must be at least 20 characters or include a PDF.");
       return;
     }
 
     try {
       setSaving(true);
 
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("subject", subject);
+      formData.append("className", className);
+      formData.append("sourceText", trimmedText);
+      formData.append("language", language);
+      if (pdfFile) {
+        formData.append("pdf", pdfFile, pdfFile.name);
+      }
+
       const response = await fetch("/api/lessons", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          subject,
-          className,
-          sourceText,
-          language,
-        }),
+        body: formData,
       });
 
       const data = (await response.json()) as Lesson | { error?: string };
@@ -93,6 +126,8 @@ export default function LessonsPage() {
       setClassName("");
       setLanguage("English");
       setSourceText("");
+      setPdfFile(null);
+      setPdfName("");
 
       await loadLessons();
     } catch (error) {
@@ -182,6 +217,23 @@ export default function LessonsPage() {
             onChange={(e) => setSourceText(e.target.value)}
             rows={6}
           />
+
+          <label className="upload-label" htmlFor="lesson-pdf-upload">
+            Add PDF lesson
+          </label>
+
+          <input
+            id="lesson-pdf-upload"
+            type="file"
+            accept="application/pdf"
+            onChange={handlePdfUpload}
+          />
+
+          {pdfName && (
+            <p className="lesson-message">
+              PDF attached: {pdfName}
+            </p>
+          )}
 
           <button
             className="btn"

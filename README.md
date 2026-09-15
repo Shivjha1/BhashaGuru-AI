@@ -4,7 +4,7 @@
 - Next.js App Router + TypeScript
 - NextAuth credentials authentication
 - PostgreSQL + Prisma
-- OpenAI Responses API through `/api/ai`
+- Google Gemini API through `/api/ai` using the free-tier `gemini-3.5-flash-lite` model
 - Browser SpeechSynthesis for voice output
 - Role-based Student / Teacher / Parent / Admin access
 
@@ -21,8 +21,8 @@ Create a PostgreSQL database and copy `.env.example` to `.env`.
 Set:
 - DATABASE_URL
 - AUTH_SECRET
-- OPENAI_API_KEY
-- OPENAI_MODEL (optional)
+- GEMINI_API_KEY
+- GEMINI_MODEL (optional; defaults to `gemini-3.5-flash-lite`)
 
 Then:
 
@@ -51,7 +51,7 @@ Deploy the Next.js app to Vercel or another Node-compatible host. Add the same e
 
 ## Architecture
 Browser → Next.js UI → protected server routes/actions → Prisma/PostgreSQL
-                                  ↘ OpenAI API
+                                  ↘ Google Gemini API
                                   ↘ SpeechSynthesis
 
 ## SIH hardening still recommended

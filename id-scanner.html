@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ID Register Scanner</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    :root { --ink:#17202b; --muted:#667085; --paper:#f4f1ea; --card:#fffdf8; --line:#ded8cc; --accent:#e76f51; --green:#2a9d8f; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--paper); font-family:Georgia, 'Times New Roman', serif; }
+    button, input, select { font:inherit; }
+    .page { max-width:1180px; margin:auto; padding:34px 22px 64px; }
+    header { display:flex; justify-content:space-between; align-items:end; gap:20px; margin-bottom:30px; }
+    .kicker { margin:0 0 8px; color:var(--accent); font:700 12px/1.2 Arial,sans-serif; letter-spacing:.14em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(34px,6vw,64px); line-height:.95; font-weight:500; }
+    .intro { max-width:420px; margin:0; color:var(--muted); font:15px/1.5 Arial,sans-serif; }
+    .grid { display:grid; grid-template-columns:minmax(0, .9fr) minmax(0, 1.1fr); gap:20px; }
+    .card { background:var(--card); border:1px solid var(--line); padding:24px; box-shadow:8px 8px 0 rgba(23,32,43,.06); }
+    h2 { margin:0 0 7px; font-size:26px; font-weight:500; }
+    .muted { color:var(--muted); font:14px/1.45 Arial,sans-serif; }
+    .preview { position:relative; height:230px; margin:20px 0 15px; display:grid; place-items:center; overflow:hidden; background:#202b32; }
+    video { width:100%; height:100%; object-fit:cover; }
+    .preview span { position:absolute; color:#dce5df; font:14px Arial,sans-serif; }
+    .frame { position:absolute; width:62%; height:44%; border:2px solid #b8f2df; box-shadow:0 0 0 100vmax rgba(0,0,0,.2); }
+    .actions { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+    .btn { border:0; padding:12px 16px; color:white; background:var(--ink); cursor:pointer; font:700 13px Arial,sans-serif; }
+    .btn:hover { background:var(--accent); }
+    .btn:disabled { cursor:not-allowed; opacity:.45; }
+    .btn.green { background:var(--green); }
+    label { display:block; margin:13px 0 6px; font:700 13px Arial,sans-serif; }
+    input, select { width:100%; padding:11px 12px; border:1px solid var(--line); color:var(--ink); background:white; outline-color:var(--green); }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    form .btn { width:100%; margin-top:19px; }
+    .message { min-height:20px; margin:15px 0 0; color:var(--green); font:700 13px Arial,sans-serif; }
+    .table-wrap { overflow-x:auto; margin-top:22px; }
+    table { width:100%; border-collapse:collapse; text-align:left; font:14px Arial,sans-serif; }
+    th, td { padding:12px 9px; border-bottom:1px solid var(--line); white-space:nowrap; }
+    th { color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+    .register-top { display:flex; align-items:start; justify-content:space-between; gap:14px; }
+    .empty { min-height:330px; display:grid; place-content:center; justify-items:center; text-align:center; color:var(--muted); font:14px Arial,sans-serif; }
+    .empty strong { margin-bottom:8px; color:var(--ink); font:42px Georgia,serif; }
+    @media (max-width:780px) { header, .register-top { display:block; } .intro { margin-top:16px; } .grid { grid-template-columns:1fr; } .register-top .btn { margin-top:18px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div><p class="kicker">Independent tool</p><h1>ID Register</h1></div>
+      <p class="intro">Scan student IDs, add their details, and download a clean register that opens in Microsoft Excel.</p>
+    </header>
+    <div class="grid">
+      <section class="card">
+        <h2>Capture an ID</h2>
+        <p class="muted">Use a QR code or barcode when your browser supports camera scanning. Manual entry is always available.</p>
+        <div class="preview"><video id="video" autoplay muted playsinline></video><div class="frame"></div><span id="previewText">Camera preview</span></div>
+        <div class="actions"><button class="btn" id="cameraButton" type="button">Start camera</button><button class="btn green" id="ocrButton" type="button" disabled>Read card text</button><label class="btn" for="photoInput">Choose card photo</label><input id="photoInput" type="file" accept="image/*" capture="environment" hidden><span class="muted">Text is processed in your browser.</span></div>
+        <canvas id="snapshot" hidden></canvas>
+        <form id="studentForm">
+          <label for="studentId">Student ID</label><input id="studentId" required placeholder="Scan or enter ID">
+          <label for="name">Full name</label><input id="name" required placeholder="Student name">
+          <div class="row"><div><label for="email">Email</label><input id="email" type="email" placeholder="Optional"></div><div><label for="className">Class</label><input id="className" placeholder="Class 5"></div></div>
+          <label for="language">Language</label><select id="language"><option>English</option><option>Telugu</option><option>Hindi</option><option>Tamil</option><option>Kannada</option><option>Marathi</option><option>Bengali</option></select>
+          <button class="btn green" type="submit">Add to register</button>
+        </form>
+        <p class="message" id="message" role="status"></p>
+      </section>
+      <section class="card">
+        <div class="register-top"><div><h2>Excel register</h2><p class="muted"><span id="count">0</span> students ready to export.</p></div><button class="btn" id="exportButton" type="button" disabled>Export for Excel</button></div>
+        <div id="tableArea" class="empty"><strong>▦</strong><span>Your scanned students will appear here.</span></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const rows = [];
+    const video = document.getElementById('video');
+    const cameraButton = document.getElementById('cameraButton');
+    const previewText = document.getElementById('previewText');
+    const message = document.getElementById('message');
+    const ocrButton = document.getElementById('ocrButton');
+    const snapshot = document.getElementById('snapshot');
+    const photoInput = document.getElementById('photoInput');
+    let stream = null;
+    let timer = null;
+
+    function stopCamera() {
+      if (timer) clearInterval(timer);
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      stream = null;
+      cameraButton.textContent = 'Start camera';
+      ocrButton.disabled = true;
+    }
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream;
+        previewText.hidden = true;
+        cameraButton.textContent = 'Stop camera';
+        ocrButton.disabled = false;
+        if (!('BarcodeDetector' in window)) {
+          message.textContent = 'Camera preview is active. Hold the card steady; automatic text reading will start shortly.';
+          timer = setInterval(() => {
+            if (!ocrButton.disabled) ocrButton.click();
+          }, 5000);
+          return;
+        }
+        const detector = new BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'upc_a'] });
+        timer = setInterval(async () => {
+          if (video.readyState < 2) return;
+          const codes = await detector.detect(video);
+          if (codes[0] && codes[0].rawValue) {
+            document.getElementById('studentId').value = codes[0].rawValue;
+            message.textContent = 'ID scanned. Complete the details and add the student.';
+            stopCamera();
+          }
+        }, 400);
+      } catch (error) {
+        message.textContent = 'Camera permission was unavailable. Enter the ID manually.';
+        stopCamera();
+      }
+    }
+
+    cameraButton.addEventListener('click', () => stream ? stopCamera() : startCamera());
+    ocrButton.addEventListener('click', async () => {
+      if (!stream || !video.videoWidth) {
+        message.textContent = 'Start the camera first, then hold the ID card inside the frame.';
+        return;
+      }
+      ocrButton.disabled = true;
+      message.textContent = 'Reading the card text… keep the card still.';
+      snapshot.width = video.videoWidth;
+      snapshot.height = video.videoHeight;
+      snapshot.getContext('2d').drawImage(video, 0, 0, snapshot.width, snapshot.height);
+      try {
+        const result = await Tesseract.recognize(snapshot, 'eng');
+        const text = result.data.text.replace(/\s+/g, ' ').trim();
+        const idMatch = text.match(/\b[A-Z0-9][A-Z0-9/-]{3,}\b/i);
+        document.getElementById('studentId').value = idMatch ? idMatch[0] : text.slice(0, 30);
+        const words = text.split(/\s+/).filter(word => /[a-z]/i.test(word));
+        if (!document.getElementById('name').value && words.length) document.getElementById('name').value = words.slice(0, 4).join(' ');
+        message.textContent = text ? 'Card text read. Check the fields before adding it.' : 'No text was found. Move closer, improve lighting, and try again.';
+      } catch (error) {
+        message.textContent = 'The card could not be read. Try a brighter, closer view.';
+      } finally {
+        ocrButton.disabled = !stream;
+      }
+    });
+    photoInput.addEventListener('change', () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+      const image = new Image();
+      image.onload = async () => {
+        snapshot.width = image.naturalWidth;
+        snapshot.height = image.naturalHeight;
+        snapshot.getContext('2d').drawImage(image, 0, 0);
+        message.textContent = 'Reading the card photo…';
+        try {
+          const result = await Tesseract.recognize(snapshot, 'eng');
+          const text = result.data.text.replace(/\s+/g, ' ').trim();
+          const idMatch = text.match(/\b[A-Z0-9][A-Z0-9/-]{3,}\b/i);
+          document.getElementById('studentId').value = idMatch ? idMatch[0] : text.slice(0, 30);
+          const words = text.split(/\s+/).filter(word => /[a-z]/i.test(word));
+          if (!document.getElementById('name').value && words.length) document.getElementById('name').value = words.slice(0, 4).join(' ');
+          message.textContent = text ? 'Photo read. Check the fields before adding it.' : 'No text found. Use a clear, well-lit photo.';
+        } catch (error) {
+          message.textContent = 'The photo could not be read. Try a clearer image.';
+        }
+      };
+      image.src = URL.createObjectURL(file);
+    });
+    document.getElementById('studentForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const get = id => document.getElementById(id).value.trim();
+      rows.push({ studentId:get('studentId'), name:get('name'), email:get('email'), className:get('className'), language:get('language'), scannedAt:new Date().toLocaleString() });
+      event.target.reset();
+      message.textContent = 'Student added to the register.';
+      render();
+    });
+
+    function render() {
+      document.getElementById('count').textContent = rows.length;
+      document.getElementById('exportButton').disabled = rows.length === 0;
+      const tableArea = document.getElementById('tableArea');
+      if (!rows.length) { tableArea.className = 'empty'; tableArea.innerHTML = '<strong>▦</strong><span>Your scanned students will appear here.</span>'; return; }
+      tableArea.className = 'table-wrap';
+      tableArea.innerHTML = '<table><thead><tr><th>ID</th><th>Name</th><th>Class</th><th>Language</th></tr></thead><tbody>' + rows.map(row => `<tr><td>${escapeHtml(row.studentId)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.className || '—')}</td><td>${escapeHtml(row.language)}</td></tr>`).join('') + '</tbody></table>';
+    }
+
+    function escapeHtml(value) { return value.replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character])); }
+    document.getElementById('exportButton').addEventListener('click', () => {
+      const headers = ['Student ID','Full name','Email','Class','Language','Scanned at'];
+      const cell = value => '"' + value.replace(/"/g, '""') + '"';
+      const csv = [headers, ...rows.map(row => [row.studentId,row.name,row.email,row.className,row.language,row.scannedAt])].map(line => line.map(cell).join(',')).join('\r\n');
+      const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8;' }));
+      const link = document.createElement('a'); link.href = url; link.download = 'student-register-' + new Date().toISOString().slice(0,10) + '.csv'; link.click(); URL.revokeObjectURL(url);
+    });
+    window.addEventListener('beforeunload', stopCamera);
+  </script>
+</body>
+</html>

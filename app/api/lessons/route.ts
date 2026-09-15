@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { mkdir, writeFile } from "fs/promises";
+import path from "path";
 
 export async function GET() {
   try {
@@ -46,17 +48,67 @@ export async function POST(req: Request) {
       );
     }
 
-    body = await req.json();
+    const contentType = req.headers.get("content-type") || "";
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "lessons");
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      const file = formData.get("pdf") as File | null;
+      const title = String(formData.get("title") || "").trim();
+      const subject = String(formData.get("subject") || "").trim();
+      const className = String(formData.get("className") || "").trim();
+      const sourceText = String(formData.get("sourceText") || "").trim();
+      const language = String(formData.get("language") || "English").trim();
+
+      let pdfUrl: string | undefined;
+      let pdfName: string | undefined;
+
+      if (file && file instanceof File) {
+        if (file.type !== "application/pdf") {
+          return NextResponse.json({ error: "Only PDF files are allowed." }, { status: 400 });
+        }
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+        const fileName = `${Date.now()}-${safeName}`;
+        await mkdir(uploadDir, { recursive: true });
+        const bytes = Buffer.from(await file.arrayBuffer());
+        await writeFile(path.join(uploadDir, fileName), bytes);
+        pdfUrl = `/uploads/lessons/${fileName}`;
+        pdfName = file.name;
+      }
+
+      body = {
+        title,
+        subject,
+        className,
+        sourceText,
+        pdfUrl,
+        pdfName,
+        language,
+      };
+    } else {
+      body = await req.json();
+    }
+
     const result = z
       .object({
         title: z.string().trim().min(2, "Title must be at least 2 characters."),
         subject: z.string().trim().min(1, "Subject is required."),
         className: z.string().trim().min(1, "Class is required."),
-        sourceText: z
+        sourceText: z.string().trim().optional().default(""),
+        pdfUrl: z
           .string()
           .trim()
-          .min(20, "Lesson content must be at least 20 characters."),
+          .optional()
+          .refine((value) => !value || value.startsWith("/uploads/") || /^https?:\/\//i.test(value), {
+            message: "PDF must be a valid upload path or URL.",
+          }),
+        pdfName: z.string().trim().max(200).optional(),
         language: z.string().trim().min(1).default("English"),
+      })
+      .refine((data) => data.sourceText.length >= 20 || Boolean(data.pdfUrl), {
+        message: "Add lesson text or upload a PDF file.",
+        path: ["sourceText"],
       })
       .safeParse(body);
 
@@ -67,9 +119,16 @@ export async function POST(req: Request) {
       );
     }
 
+    const normalizedLesson = {
+      ...result.data,
+      sourceText:
+        result.data.sourceText.trim() ||
+        (result.data.pdfName ? `PDF lesson attached: ${result.data.pdfName}` : "PDF lesson attached."),
+    };
+
     const lesson = await db.lesson.create({
       data: {
-        ...result.data,
+        ...normalizedLesson,
         teacherId: user.id,
         status: "PUBLISHED",
       },
